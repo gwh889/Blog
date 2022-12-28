@@ -618,6 +618,29 @@ dog.dance();
 
 3.将Animate的prototype原型指向obj原型，dog.proto=Animate.prototype，这样obj就拥有了Animate中的方法.
 
+## 原型链
+
+```js
+class Person{
+    constructor(x,y){
+        this.x=x;
+        this.y=y;
+    }
+}
+let p=new Person(1,2)
+console.log(p.__proto__===Person.prototype)  //true  _proto_是对象实例的隐式原型
+console.log(p.z) //undefined
+p.__proto__.z=5
+console.log(p.z) // 5 加在了p的原型上
+p.f=6
+console.log(p.f) // 6 加在了p的这个对象上
+//constructor指向的就是构造函数本身
+console(Person==Person.prototype.constructor) //true
+console.log(Person==p.__proto__.constructor) //true
+```
+
+{% asset_img image-20221102170434564.png 这是一张图片 %}
+
 ## 手写深拷贝
 
 该函数对简单数据类型和引用数据类型都能实现深拷贝
@@ -1347,30 +1370,46 @@ Animal.prototype.eat = function(food) {
 
 ### 1.原型链继承
 
-将父类的实例作为子类的原型
+核心：将父类的实例作为子类的原型
 
 ```js
-function Cat(){ 
+function Cat(){
+    age:2
 }
-Cat.prototype = new Animal();
 Cat.prototype.name = 'cat';
+Cat.prototype = new Animal(); //Cat通过prototype指向Animal函数
+Cat.prototype.constructor = Cat
 
 //　Test Code
 var cat = new Cat();
-console.log(cat.name);
-console.log(cat.eat('fish'));
-console.log(cat.sleep());
+console.log(cat.name); //Animal
+console.log(cat.eat('fish')); //Animal正在吃：fish
+console.log(cat.sleep()); //Animal正在睡觉！
+console.log(cat.age); //undefined
 console.log(cat instanceof Animal); //true 
 console.log(cat instanceof Cat); //true
+
+//改造后
+//必须将要为子类新增的属性和方法放在new Animal()后
+Cat.prototype = new Animal(); //Cat通过prototype指向Animal函数
+Cat.prototype.constructor = Cat
+Cat.prototype.name = 'cat';
+Cat.prototype.age = 2;
+
+var cat = new Cat();
+console.log(cat.name); //cat
+console.log(cat.eat('fish')); //cat正在吃：fish
+console.log(cat.sleep()); //cat正在睡觉！
+console.log(cat.age); //2
 ```
 
-特点： 
+特点：
 
 1. 非常纯粹的继承关系，实例是子类的实例，也是父类的实例
 2. 父类新增原型方法/原型属性，子类都能访问到
 3. 简单，易于实现
 
-缺点： 
+缺点：
 
 1. 要想为子类新增属性和方法，必须要在`new Animal()`这样的语句之后执行，不能放到构造器中
 2. 无法实现多继承
@@ -1379,11 +1418,390 @@ console.log(cat instanceof Cat); //true
 
 ### 2.构造继承
 
-### 3.实例继承
+构造函数继承的基本思想就是利用call或者apply把父类中通过this指定的属性和方法复制（借用）到子类创建的实例中。因为this对象是在运行时基于函数的执行环境绑定的。在全局中，this等于window，而当函数被作为某个对象的方法调用时，this等于那个对象。call 、apply方法可以用来代替另一个对象调用一个方法。
 
-### 4.拷贝继承
+创建了一个新的实例对象，并且执行SubType里面的代码，而SubType里面用call调用了SuperTyep，也就是说把this指向改成了指向新的实例，所以就会把SuperType里面的this相关属性和方法赋值到新的实例上，而不是赋值到SupType上面。所有实例中就拥有了父类定义的这些this的属性和方法。
 
-### 5.组合继承
+```js
+function SuperType(){
+ this.colors = ["red", "blue", "green"];
+}
+function SubType(){
+  //继承了SuperType
+ SuperType.call(this);
+}
+ 
+var instance1 = new SubType();
+instance1.colors.push("black");
+alert(instance1.colors); //"red,blue,green,black"
+var instance2 = new SubType();
+alert(instance2.colors); //"red,blue,green" 
+```
+
+### 3.组合继承
+
+组合继承有时候也叫伪经典继承，指的是将[原型链](https://so.csdn.net/so/search?q=原型链&spm=1001.2101.3001.7020)和借用构造函数技术组合到一块，从而发挥二者之长的一种继承模式，其背后的思路是使用原型链实现对原型属性和方法的继承，而通过借用构造函数来实现对实例属性的继承。这样既通过在原型上定义方法实现了函数复用，又能保证每个实例都有它的自己的属性。
+
+```js
+function SuperType(name){
+ this.name=name;
+ this.colors=["red","blue","green"];
+}
+SuperType.prototype.sayName=function(){
+ console.log(this.name);
+}
+function SubType(name,age){
+ SuperType.call(this,name);
+ this.age=age;
+}
+SubType.prototype=new SuperType(); //原型上继承了SuperType的本身属性和原型
+SubType.prototype.constructor=SubType;
+SubType.prototype.sayAge=function(){
+ console.log(this.age);
+}
+var instance1=new SubType("zxf",24);
+instance1.colors.push("black");
+console.log(instance1.colors);//["red","blue","green","black"]
+instance1.sayName();//"zxf"
+instance1.sayAge();//24
+var instance2=new SubType("jay",36);
+console.log(instance2.colors);//["red","blue","green"]
+instance2.sayName();//"jay"
+instance2.sayAge();//36
+```
+
+**基本思想**：supertype构造函数定义了两个属性，name和colors。supertype的原型定义了一个方法sayname()。subtype构造函数调用supertype时传入了name参数，紧接着又定义了它自己的属性age。然后将supertype的实例赋值给subtype的原型，然后又在该新原型上定义了方法sayage()。这样一来，就可以让两个不同的subtype实例既可以拥有属性--包括colors属性，又可以使用相同的方法。
+**缺点**：调用了两次supertype构造函数，一次在赋值subtype的原型时，一次在实例化子类时call调用，这次调用会屏蔽原型中的两个同名属性。
+
+### 4.原型式继承
+
+原型继承并没有使用严格意义上的构造函数，是通过借助原型基于已有的对象创建的新对象，同时还不必创建自定义类型。使用原型继承的思路：
+
+```js
+// 在Object函数的内部先创建了一个临时性的构造函数，然后将传入的对象作为这个构造函数的原型，最后返回了这个临时类型的一个新实例
+function Object(o){
+    function F(){}
+    F.prototype=o
+    return new F()
+}
+```
+
+```js
+//代码1：
+var person={
+name:"Tom",
+friends:["111","222","333"]
+}
+ 
+var anotherPerson=Object(person);
+anotherPerson.name="Greg";
+anotherPerson.friends.push("aaa");
+ 
+var yetAnotherPerson=Object(person);
+yetAnotherPerson.name="Bob";
+yetAnotherPerson.friends.push("000");
+ 
+alert(person.friends); //111,222,333,aaa,000
+```
+
+克洛克福德主张这种原型式继承，要求你必须有一个对象可以作为另一个对象的基础。在代码1中，可以作为另一个对象的基础的是person对象，于是我们可以把它传入到object()函数中，然后该函数就会返回一个新对象
+
+#### **Object.create( )**
+
+ECMAScript5新增Object.create( )方法规范了原型式继承。该方法接收了两个参数：一个用作新对象原型的对象和(可选)一个为新对象定义额外属性的对象。在传入一个参数的情况下Object.create( )和object( )方法的行为相同。如果传入两个参数，则Object.create( )的第二个参数与Object.defineProperties( )方法的第二个参数的格式相同：每个属性都是通过自己的描述符定义的。
+
+```js
+var anotherPerson=Object(person);   =>   var anotherPerson=Object.create(person);
+```
+
+### 5.寄生式继承
+
+寄生式继承就是创建一个仅用于封装继承过程的函数，该函数在内部以某种方式来增强对象，后再像真的是它做了所有工作一样返回对象。
+
+```js
+function createAnother(o){
+    var clone = Object(o) //通过调用上边说的Object函数创建新的对象
+    clone.sayHi=function(){
+    //以某种方式来增强对象
+    alert('hi')
+    }
+    return clone
+}
+```
+
+createAnother()函数接收了一个参数，也就是将要作为新对象基础的对象。然后，把这个对象（original）传递给 object()函数，将返回的结果赋值给 clone。再为 clone 对象 添加一个新方法 sayHi()，后返回 clone 对象。可以像下面这样来使用 createAnother()函数：
+
+```js
+var person = {     
+name: "Nicholas",     
+friends: ["Shelby", "Court", "Van"] 
+}; 
+ 
+var anotherPerson = createAnother(person); 
+anotherPerson.sayHi(); //"hi" 
+```
 
 ### 6.寄生组合继承
+
+所谓寄生组合式继承，即通过借用[构造函数](https://so.csdn.net/so/search?q=构造函数&spm=1001.2101.3001.7020)来继承属性，通过原型链的混成形式来继承方法。其背后的基本思路是：不必为了指定子类型的原型而调用超类型的构造函数，我们所需要的无非就是超类型原型的一个副本而已。本质上，就是使用寄生式继承来继承超类型的原型，然后再将结果指定给子类型的原型。
+
+一、定义父类
+
+```js
+function Person(name){
+    this.category = 'human';
+    this.legNum = 2;
+    this.name = name;
+}
+ 
+Person.prototype.sayHello = function(){
+    console.log('Hi,i am ' + this.name);
+}
+```
+
+二、定义继承方法
+
+```js
+function inherit(subType,superType){
+    //在new inheritFn 的时候将构造函数指向子类
+    function inheritFn(){this.constructor = subType}
+    inheritFn.prototype = superType.prototype;  // 不写的话subType.prototype指向的是inheritFn
+    //将子类的原型指向父类原型的一个副本
+    subType.prototype = new inheritFn();
+}
+```
+
+三、定义子类并实现继承
+
+```js
+//定义子类构造函数Pan
+function Pan(name,age){
+    Person.call(this,name);  //借用构造函数
+    this.age = age;
+}
+ 
+//将子类Pan的原型指向父类Person原型的一个副本
+//注意：要执行该动作后才能在Pan的prototype上定义方法，否则没用
+inherit(Pan,Person); 
+ 
+Pan.prototype.sayAge = function(){
+    console.log(this.age);
+}
+ 
+//定义子类构造函数Duan
+function Duan(name,hairColor){
+    Person.call(this,name);
+    this.hairColor = hairColor;
+}
+ 
+inherit(Duan,Person);
+ 
+Duan.prototype.showHairColor = function(){
+    console.log(this.hairColor);
+}
+```
+
+四、结果输出
+
+```js
+//Pan的实例
+var pan = new Pan('panfengshan',27);
+console.log(pan.name); //panfengshan
+console.log(pan.age); //27
+console.log(pan.category); //human
+console.log(pan.legNum); //2
+ 
+pan.sayHello(); //Hi,i am panfengshan
+pan.sayAge(); //27
+ 
+//Duan的实例
+var duan = new Duan('duanyanan','black');
+console.log(duan.name); //duanyanan
+console.log(duan.hairColor); //black
+console.log(pan.category); //human
+console.log(pan.legNum); //2
+ 
+duan.sayHello(); //Hi,i am duanyanan
+duan.showHairColor(); //black
+```
+
+寄生组合式继承的高效体现在它只调用了一次Person构造函数，并且因此避免了在Pan.prototype上面创建不必要的、多余属性。与此同时，[原型链](https://so.csdn.net/so/search?q=原型链&spm=1001.2101.3001.7020)还能保持不变；因此，还能正常使用instanceof和isPropertyOf()。开发人员普遍认为寄生组合式继承是引用类型最理想的继承范式。
+
+### 7.ES6 class类继承
+
+ES6引入了Class语法糖，使得Js继承更像面向对象语言的写法。Class可以通过extends关键字来实现继承，这比ES5的通过修改原型链继承，要清晰和方便很多。
+
+```js
+class Father{
+}
+class Son extends Father{
+}
+//由于两个类里边什么都没写，相当于Son是复制了Father，两个类完全一样
+```
+
+子类必须在constructor中调用super()，否则新建实例会报错，这是因为子类没有自己的this对象，而是继承父类的this对象，然后对其加工，如果不调用super()，子类就得不到this对象。
+
+```js
+class Father{
+}
+class Son extends Father{
+    constructor(){}
+}
+let s=new Son()
+//referenceError : this is not defined
+```
+
+ES5的继承，实质是先创造子类的实例对象this，然后再将父类的方法添加到this上（Parent.apply(this)）,ES6的继承机制完全不同，实质是先创造父类的实例对象this（所以必须先调用super方法）,然后再用子类的构造函数修改this；
+如果子类没有定义constructor方法，这个方法会默认添加，也就是说，不管有没有显式定义，任何一个子类都有constructor方法。constructor中的属性和方法是实例对象上的，其外的是类原型上的。
+
+```js
+class Father {
+   constructor (x,y) {
+      this.x= x;
+      this.y = y;
+    }
+}  
+class Son extends Father {
+   constructor (x, y, color) {
+       this.color =color ;//ReferenceError : this is not defined
+       super(x,y);
+       this.color = color;//正确
+      }
+
+}
+```
+
+**super关键字**
+
+既可以当函数使用，也可以当对象使用
+
+（1）当对函数使用，代表的是父类的构造函数，ES6要求，子类的构造函数必须执行一个super()函数。super虽然代表了父类的构造函数，但是返回的是子类Son的实例，即super内部的this指向 的是Son，因此super()在这里相当于Father.constructor.call(this)。作为函数使用时，super()只能用在子类的构造器中，在其它地方会报错。
+
+```js
+class A {
+     constructor (){
+        console.log(new.target.name);
+      }
+ }
+class B extends A {
+   constructor () {
+      super();
+     }
+ }
+ new A()//A
+ new B()//B
+//new.target指向当前正在执行的函数，在super()执行时，他指向的是子类B的构造函数，而不是父类A的构造函数，super()内部的this指向的是B；
+```
+
+（2）作为对象使用时，在普通方法中，指向父类的原型对象；在静态方法中，指向父类
+
+**普通方法**
+
+```js
+// super指向父类原型
+//定义在了父类的原型上的方法
+class Father{
+    getName(){
+        return 'Bob'
+    }
+}
+class Son extends Father{
+    constructor(){
+        super()
+        console.log(super.getName()) //Bob
+    }
+}
+let s =new Son()
+//定义在父类实例（非原型上）的属性和方法是无法访问的
+class Father{
+    constructor(){
+        this.p=2
+    }
+}
+class Son extends Father{
+    get m(){
+        return super.p
+    }
+}
+let s = new Son();
+s.m  //undefined
+//定义在原型的变量
+class Father{
+}
+Father.prototype.p=2
+class Son extends Father{
+    get m(){
+        return super.p
+    }
+}
+let s = new Son();
+s.m  //2
+```
+
+ES6 规定，通过super调用父类的方法时，super会绑定子类的this
+
+```js
+class Father {
+   constructor () {
+      this.x =1;//这个this指向的是Father对象的实例
+   }
+   print () {
+      console.log(this.x);
+   }
+}
+class Son extends Father {
+   constructor () {
+       super();
+       this.x = 2;//这个this指向的是Son对象的实例
+   }
+     m() {
+      super.print();   
+     }
+}
+let s = new Son();
+s.m(); //2
+```
+
+super.print()虽然调用的是Father.prototype.print()，但是Father.prototype.print()会绑定子类Son的this，导致输出的是2，而不是1，也就是说，实际上执行的是 super.print.call(this)。
+
+**静态方法**
+
+```js
+class Parent {
+    //使用static声明的方法是在 Parent实例对象的原型的constructor上
+      static myMethod (msg) {
+           console.log("static",msg);
+        }
+    //普通方法声明的是在 Parent实例对象的原型
+      myMethod (msg) {
+          console.log("instance" ,msg);
+        }
+}
+let p=new Parent()
+console.log(Parent.myMethod(1)) // static 1
+console.log(p.__proto__.constructor.myMethod(1)) // static 1
+console.log(p.__proto__.myMethod(1)) // instance 1
+
+class Child extends Parent {
+     static myMethod(msg) {
+          super.myMethod(msg);
+     }
+      myMethod (msg) {
+          super.myMethod(msg);
+      }
+ }
+Child.myMethod(1);
+//static 1
+var child = new Child();
+child.myMethod(2);
+//instance 2
+```
+
+super在静态方法之中指向父类，在普通方法之中指向父类的原型对象。使用super的时候，必须显式指定是作为函数、还是作为对象使用，否则会报错。
+
+**类的prototype属性和proto属性**
+
+大多数浏览器的ES5实现之中，每一个对象都有**proto**属性，指向对应的构造函数的prototype属性，class作为构造函数的[语法糖](https://so.csdn.net/so/search?q=语法糖&spm=1001.2101.3001.7020)，同时有prototype属性和**proto**属性，因此同时存在两条继承链；
+（1）子类的**proto**属性，表示构造函数的继承，总是指向父类；
+（2）子类prototype属性的**proto**属性，表示方法的继承，总是指向父类的prototype属性；
 
