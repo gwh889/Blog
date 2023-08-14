@@ -10,6 +10,60 @@ ES5 只有两种声明变量的方法：`var`命令和`function`命令。ES6 除
 
 顶层对象，在浏览器环境指的是`window`对象，在 Node 指的是`global`对象。ES5 之中，顶层对象的属性与全局变量是等价的。ES6 为了改变这一点，一方面规定，为了保持兼容性，`var`命令和`function`命令声明的全局变量，依旧是顶层对象的属性；另一方面规定，`let`命令、`const`命令、`class`命令声明的全局变量，不属于顶层对象的属性。也就是说，从 ES6 开始，全局变量将逐步与顶层对象的属性脱钩。
 
+## let、const和var
+
+### 重复声明
+
+var允许重复声明，let、const不允许，重复声明指的是：已经存在的变量或常量，又声明了一遍（**形参也算已经声明的变量**）
+
+### 变量提升
+
+var会提升变量的声明到作用域的顶部，但let和const不会
+
+### 暂时性死区
+
+只要作用域内存在let、const，它们所声明的变量或常量就会自动“绑定”这个区域，不再受外部作用域的影响；var没有暂时性死区
+
+```js
+let a=2
+function func(){
+    console.log(a) //报错，因为在func中定义了变量a，而let没有变量提升，弱func中无定义，则会向上找，a是2
+    let a=1
+}
+func()
+```
+
+```js
+let a=2
+function func(){
+    console.log(a) //undefined
+    var a=1
+}
+func()
+```
+
+### window对象的属性和方法（全局作用域中）
+
+全局作用域中，var声明的变量，通过function声明的函数，会自动变为window对象的变量，属性或方法，但const和let不会
+
+### 块级作用域
+
+var没有块级作用域，let和const有块级作用域
+
+```js
+for(var i=0;i<3；i++){
+    console.log(i)
+}
+console.log(i) //3
+```
+
+```js
+for(let i=0;i<3；i++){
+    console.log(i)
+}
+console.log(i) //i is not defined
+```
+
 ## 变量的解构赋值
 
 ES6 允许按照一定模式，从数组和对象中提取值，对变量进行赋值，这被称为解构（Destructuring）。
@@ -189,6 +243,71 @@ Array.prototype.flat()用于将嵌套的数组“拉平”，变成一维数组�
 ## null是Object?
 
 null作为一个基本数据类型为什么会被typeof运算符识别为Object类型呢？是因为javascript中不同对象在底层都表示为二进制，而javascript中会把二进制的前三位都为0的判断为Object类型，而null的二进制表示全都是0，自然前三位也是0，所以执行typeof时会返回object，null被认为是对一个空对象的引用。
+
+## js中this指针的改变
+
+1.apply： 第一个参数是this指向的新目标，第二个参数接受一个数组，里面是要传递的参数，相当于arguments
+
+```js
+var obj = {
+  name : 'tom',
+}
+function say(arr){
+    console.log(this) // {name: 'tom'}
+    console.log(arr) // one
+}
+say.apply(obj,['one']);
+```
+
+apply还有一个作用是，取数组中最大或最小值
+
+```js
+let arr=[1,2,3,4,5]
+let max=Math.max.apply(Math,arr) // 5
+let min=Math.min.apply(Math,arr) // 1
+// math中求大小值
+Math.max(1,2,3,4,5)
+Math.min(1,2,3,4,5)
+```
+
+2.call： 第一个参数是this指向的新目标，第二个级以后的参数是要传递的参数，以逗号隔开
+
+```js
+say.call(obj,'one');
+// this: {name: 'tom'}
+// arr: one
+```
+
+3.bind： bind()方法会创建一个新函数，称为绑定函数，当调用这个绑定函数时，绑定函数会以创建它时传入 bind()方法的第一个参数作为 this，传入 bind() 方法的第二个以及以后的参数加上绑定函数运行时本身的参数按照顺序作为原函数的参数来调用原函数。
+
+```js
+window.color='red';
+var o={color:'blue'};
+ 
+function sayColor(){ //原函数
+console.log(this.color);
+}
+var objectSaycolor=sayColor.bind(o);
+//var objectSaycolor=sayColor.bind(); //red
+objectSaycolor();//blue
+```
+
+区别： apply和call会调用函数，并且改变函数内部指向；bind不会调用函数，会创建新函数
+
+应用场景： call做继承；apply跟数组有关，做数组中最大最小值；bind不调用函数，却要改变函数的this指向，例如修改定时器中的this
+
+```js
+//vue中使用定时器
+setTimeout(function() {
+  console.log(this.total); 
+  console.log(this);
+}.bind(this), 300);//this始终指向window对象，需要通过bind来修改指向
+// 或者使用箭头函数，默认this指向的是当前箭头函数定义位置的this，无法改变
+setTimeout(() => {
+  console.log(this.total);
+  console.log(this);
+}, 300);
+```
 
 ## js判断数据类型的几种方法？
 
@@ -934,6 +1053,18 @@ DOM树完全和html标签一一对应，但是渲染树会忽略掉不需要渲�
 虽然js都会阻塞DOM解析，但是浏览器对于内联script和外联script的渲染过程还是有一点点不同。内联js会阻塞DOM解析和渲染，直到js执行完成后，页面才会被渲染出来。外联js也会阻塞DOM解析和渲染，但是如果在外联script标签之前已经有DOM元素生成，则浏览器会优先渲染一次。我想这是因为浏览器不知道脚本的内容，因而碰到脚本时，只好先渲染页面，确保脚本能获取到最新的`DOM`元素信息，尽管脚本可能不需要这些信息。
 
 https://www.cnblogs.com/FHC1994/p/13162696.html
+
+### 不阻塞浏览器渲染文档的方法
+
+script标签有两个属性，一个是defer（翻译为延迟），二是asyn（翻译为异步，没错，和我们的常见的ajax和axios的异步是一个意思），这两个属性都可以改变脚本的加载执行方式
+
+延迟： 延迟是指当浏览器解析到script脚本时，会继续向下载入和解析文档，等到文档载入解析完成且可以操作文档时，才开始执行脚本。仅仅IE浏览器支持defer属性，而async属性则被ie10+和其他现代浏览器支持。
+
+异步： 异步是指当浏览器解析到script脚本时，会立刻下载和执行脚本，但同时浏览器解析器也会继续向下解析渲染文档，不会造成阻塞的现象。这使得脚本可以尽快的被载入执行，这很想我们前端调用post异步接口，并不影响文档的正常解析渲染。HTML5中的新属性，仅适用于外部脚本
+
+**注意**： 使用defer属性的脚本，当有多个的时候，这些脚本会按照他们在文档中排列的顺序载入执行。而使用asyn属性的脚本，当有多个的时候，会顺序开始触发载入，但谁先完成载入就谁先执行，这就是说，他们的执行顺序可能是无序不确定的。在有的时候知道这点很重要，因为这可能涉及一些有强制顺序的逻辑处理。
+
+- 一个script标签同时使用了async和defer，则执行async，忽略defer。
 
 ## 跨域
 
