@@ -1359,6 +1359,8 @@ https://blog.csdn.net/yiyueqinghui/article/details/107233565
 
 https://www.cnblogs.com/hyns/p/12392249.html
 
+https://blog.csdn.net/weixin_52092151/article/details/119788483
+
 ## js中this指针的改变
 
 1.apply： 第一个参数是this指向的新目标，第二个参数接受一个数组，里面是要传递的参数，相当于arguments
@@ -1469,15 +1471,25 @@ await会阻塞后边代码的执行，函数遇到await会中断async的执行�
 
 async函数是Generator 函数的语法糖 ，async函数就是将 Generator 函数的星号（*）替换成async，将yield替换成await；进一步说就是async函数完全可以看作多个异步操作，包装成的一个 Promise 对象，而await命令就是内部then命令的语法糖。
 
+## V8垃圾回收机制
+
+V8的垃圾回收策略是将内存分为**新生代**和**老生代**，新生代中为存活时间较短的对象，老生代中为存活时间较长或常驻对象；新生代又被划分为**2个等大的内存空间**，一个叫做**使用空间**（from），用于存放活动对象，另一个叫做**空闲空间**（to）；新生代的垃圾回收算法称之为Scavenge算法。
+
+> 默认情况下，32位系统新生代内存大小为16M，老生代内存大小为700M，64位系统下，新生代内存大小为32M，老生代内存大小为1.4G。
+
+1. 从from空间中分配内存空间来存储对象，找出当前存活的对象（也可称为被引用的对象）拷贝至to空间，并将from空间中的非活动对象清除。
+2. 当to空间的使用率超过**25%**时，即将from空间和to空间调换，原来的from空间变成to空间，原来的to空间变成from空间。
+3. 经过一轮Scavenge算法后，from空间中上一轮存活的对象本轮如果仍然为活动对象，则将该对象移动至老生代中，如此循环操作。
+
 ## 模态框拖拽
 
-js鼠标移动事件：onmousemove
+js鼠标移动事件： onmousemove
 
-js鼠标点击：onmousedown
+js鼠标点击： onmousedown
 
-js鼠标松开：onmouseup
+js鼠标松开： onmouseup
 
-js鼠标移出：onmouseout
+js鼠标移出： onmouseout
 
 ## 继承方式
 
